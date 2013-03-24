@@ -1,0 +1,24 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file alias="red-piece-small.png">resources/red piece small.png</file>
+        <file alias="back.png">resources/back.png</file>
+        <file alias="undo.png">resources/undo.png</file>
+        <file alias="yellow-piece-small.png">resources/yellow piece small.png</file>
+        <file alias="icon.png">resources/icon.png</file>
+    </qresource>
+    <qresource prefix="/sprites">
+        <file alias="board-foreground.png">resources/board-foreground.png</file>
+        <file alias="red-piece.png">resources/red piece.png</file>
+        <file alias="draw.png">resources/draw.png</file>
+        <file alias="winner.png">resources/winner.png</file>
+        <file alias="yellow-piece.png">resources/yellow piece.png</file>
+    </qresource>
+    <qresource prefix="/style">
+        <file alias="style.css">resources/style.css</file>
+        <file alias="down.png">resources/down.png</file>
+        <file alias="qt.png">resources/qt.png</file>
+    </qresource>
+    <qresource prefix="/data">
+        <file alias="positions.db">resources/positions.db</file>
+    </qresource>
+</RCC>

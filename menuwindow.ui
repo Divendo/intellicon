@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MenuWindow</class>
+ <widget class="QMainWindow" name="MenuWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>584</width>
+    <height>144</height>
+   </rect>
+  </property>
+  <property name="font">
+   <font>
+    <family>Arial</family>
+    <pointsize>10</pointsize>
+   </font>
+  </property>
+  <property name="windowTitle">
+   <string>IntelliCon</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="resources.qrc">
+    <normaloff>:/icons/icon.png</normaloff>:/icons/icon.png</iconset>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <layout class="QHBoxLayout" name="hlayoutPlayers">
+      <item>
+       <layout class="QVBoxLayout" name="vlayoutP1">
+        <item>
+         <widget class="QLabel" name="labelP1">
+          <property name="font">
+           <font>
+            <pointsize>16</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Rode speler:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboP1Type">
+          <property name="font">
+           <font>
+            <family>Arial</family>
+            <pointsize>16</pointsize>
+           </font>
+          </property>
+          <item>
+           <property name="text">
+            <string>Menselijke speler</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Domme computer</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Makkelijke computer</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Gemiddelde computer</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Moeilijke computer</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Perfect spelende computer</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="vlayoutP2">
+        <item>
+         <widget class="QLabel" name="labelP2">
+          <property name="font">
+           <font>
+            <pointsize>16</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Gele speler:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboP2Type">
+          <property name="font">
+           <font>
+            <family>Arial</family>
+            <pointsize>16</pointsize>
+           </font>
+          </property>
+          <item>
+           <property name="text">
+            <string>Menselijke speler</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Domme computer</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Makkelijke computer</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Gemiddelde computer</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Moeilijke computer</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Perfect spelende computer</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QPushButton" name="buttonStartGame">
+      <property name="focusPolicy">
+       <enum>Qt::NoFocus</enum>
+      </property>
+      <property name="text">
+       <string>Start spel</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="hlayoutBottom">
+      <item>
+       <widget class="QPushButton" name="buttonAbout">
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="text">
+         <string>Over</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="buttonQuit">
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="text">
+         <string>Afsluiten</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
+ <connections/>
+</ui>
