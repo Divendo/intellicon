@@ -502,7 +502,6 @@
         const PositionValue out = createPositionValue(bestScore, 1 + bestDepth);
 
         // Only store the position in the database if there are more than 8 pieces on the board
-        // Also only store positions where red is to move (to reduce the database size)
         // Also only store positions that took a lot of work
         if(pieceCount > 8 && bestDepth > 3)
             PerfectPlayerThread::knownPositions[pieceCount][dbPosition] = out;
@@ -571,20 +570,6 @@
             if(pieceCount >= 8 && pieceCount < 38 && PerfectPlayerThread::knownPositions[pieceCount].contains(dbPosition))
                 currPosVal = getValue(PerfectPlayerThread::knownPositions[pieceCount][dbPosition]);
 
-            // Determine the alpha and beta from a previously found position or from results of the strategic rules
-            // Only for yellow the results from the strategic rules matter and then only the AllSolved, which garantuees at least a draw
-            // For both colors a win by the strategic rules wouldn't bring us here
-            // A NotAllSolved doesn't mean a loss, but it can't garantuee anything better
-            PositionValue alpha = Loss;
-            if(!isRed && currPosVal > alpha)
-                alpha = currPosVal;
-
-            PositionValue beta = Win;
-            if(isRed && currPosVal != ValueUnknown)
-                beta = currPosVal;
-            if(!isRed && bestMove == AllSolved && Draw < beta)
-                beta = Draw;
-
             // Check if we're not interrupted
             if(!keepRunning) return;
 
@@ -596,6 +581,10 @@
                 if(results[col] >= NotAllSolved)
                     moves.push_back(col);
             }
+
+            // Initialise the alpha and beta values
+            PositionValue alpha = Loss;
+            PositionValue beta = Win;
 
             // Try to solve each move
             const unsigned int moveCount = moves.size();
@@ -670,7 +659,7 @@
                 // Check if we're not interrupted
                 if(!keepRunning) return;
 
-                // Check if we can make do cutoff
+                // Check if we can make a cutoff
                 if(beta <= alpha)
                 {
                     // We may want to punish/reward certain parts of the historyHeuristic
