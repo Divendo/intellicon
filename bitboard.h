@@ -113,10 +113,21 @@ class BitBoard
 
         // Returns whether a move can be made in the given column on the given board
         static bool canMove(const quint64& bitmap, const int& col);
+        // Returns the row of the direct playable square in the given column
+        // Returns -1 if the square isn't playable
+        static int playableRow(const quint64& bitmap, const int& col);
         // Returns a new board where the given move is made (if possible)
         static quint64 move(const quint64& bitmap, const int& col, const bool& redToMove);
+        // Returns a new board where the given move is made (if possible)
+        // Warning, no checks on the validity of the move are done!
+        static quint64 move(const quint64& bitmap, const int& col, const int& row, const bool& redToMove);
         // Returns the board flipped horizontally
         static quint64 flip(const quint64& bitmap);
+        // Returns whether or not the bitboard is full
+        static bool isFull(const quint64& bitmap);
+
+        // Returns the amount of pieces on the given board
+        static int pieceCount(const quint64& bitmapRed, const quint64& bitmapYellow);
 
         // Converts the given board to an int
         static quint64 board2int(const Board& board);
@@ -131,7 +142,7 @@ class BitBoard
         int highestPieces[7];
 
         // Counts the number of set bits
-        int bitcount(quint64 x) const;
+        static int bitcount(quint64 x);
 };
 
 #endif // BITBOARD_H

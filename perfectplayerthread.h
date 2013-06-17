@@ -97,7 +97,7 @@ class PerfectPlayerThread : public QObject
         // Initialise the history heuristic array
         void initHistoryHeuristic();
         // Finds the value of the given position
-        PositionValue alphaBeta(const BitBoard& bitBoard, PositionValue alpha, PositionValue beta);
+        PositionValue alphaBeta(const quint64& bitBoard, const quint64& redBoard, const quint64& yellowBoard, PositionValue alpha, PositionValue beta);
 
     private slots:
         void simulationDone(const int& col, const MoveSmartness& result);

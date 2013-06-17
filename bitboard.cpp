@@ -97,12 +97,7 @@
     bool BitBoard::yellowHasWon() const
     { return BitBoard::isWinner(bitmapYellow); }
     bool BitBoard::isFull() const
-    {
-        // 141845657554976 is in binary: 0100000 0100000 0100000 0100000 0100000 0100000 0100000
-        // In other words: all bits in the sixth (top) row are true
-        const quint64 topRow = Q_UINT64_C(141845657554976);
-        return (bitmap & topRow) == topRow;
-    }
+    { return BitBoard::isFull(bitmap); }
 
     int BitBoard::playableRow(const int& col) const
     { return highestPieces[col] == 5 ? -1 : highestPieces[col] + 1; }
@@ -115,7 +110,7 @@
 
     // Returns the amount of pieces on the board
     int BitBoard::pieceCount() const
-    { return bitcount(bitmapRed | bitmapYellow); }
+    { return BitBoard::bitcount(bitmapRed | bitmapYellow); }
 
     // Static:
         bool BitBoard::isWinner(const quint64& colorBoard)
@@ -140,6 +135,21 @@
         {
             // If the bit at (5 + 7 * col) is set, then this column is full
             return !(bitmap & (Q_UINT64_C(1) << (5 + 7 * col)));
+        }
+
+        int BitBoard::playableRow(const quint64& bitmap, const int& col)
+        {
+            // 63 is in binary: 0111111
+            // In other words: a completely filled column
+            const quint64 colBits = ((Q_UINT64_C(63) << 7 * col) & bitmap) >> 7 * col;
+
+            if(colBits & (1 << 5)) return -1;
+            if(colBits & (1 << 4)) return 5;
+            if(colBits & (1 << 3)) return 4;
+            if(colBits & (1 << 2)) return 3;
+            if(colBits & (1 << 1)) return 2;
+            if(colBits & (1 << 0)) return 1;
+            return 0;
         }
 
         quint64 BitBoard::move(const quint64& bitmap, const int& col, const bool& redToMove)
@@ -176,6 +186,30 @@
             // Return the result
             return result;
         }
+        quint64 BitBoard::move(const quint64& bitmap, const int& col, const int& row, const bool& redToMove)
+        {
+            // Determine which color the highest piece in the column has
+            const bool colIsRed = bitmap & (Q_UINT64_C(1) << (6 + 7 * col));
+
+            // This will be our result, just copy the current board to it
+            quint64 result = bitmap;
+
+            // If the color of the target column isn't the same as the player that is to move
+            // then we need to switch the color of that column
+            if(colIsRed != redToMove)
+            {
+                // (Q_UINT64_C(1) << (6 + 7 * col)) creates a mask with a true bit on the top-bit
+                // (((Q_UINT64_C(1) << row) - 1) << 7 * col) creates a mask where all bits representing the squares that are filled in the column that's being played are true
+                // Combining these two masks gives a mask that will change (using XOR) the color of the column that's being played
+                result ^= (Q_UINT64_C(1) << (6 + 7 * col)) | (((Q_UINT64_C(1) << row) - 1) << 7 * col);
+            }
+
+            // Add the played piece to the board
+            result |= Q_UINT64_C(1) << (row + col * 7);
+
+            // Return the result
+            return result;
+        }
 
         quint64 BitBoard::flip(const quint64& bitmap)
         {
@@ -199,6 +233,16 @@
             // Return the result
             return out;
         }
+        bool BitBoard::isFull(const quint64& bitmap)
+        {
+            // 141845657554976 is in binary: 0100000 0100000 0100000 0100000 0100000 0100000 0100000
+            // In other words: all bits in the sixth (top) row are true
+            const quint64 topRow = Q_UINT64_C(141845657554976);
+            return (bitmap & topRow) == topRow;
+        }
+
+        int BitBoard::pieceCount(const quint64& bitmapRed, const quint64& bitmapYellow)
+        { return BitBoard::bitcount(bitmapRed | bitmapYellow); }
 
         quint64 BitBoard::board2int(const Board& board)
         {
@@ -260,7 +304,7 @@
         }
 
 // Private:
-    int BitBoard::bitcount(quint64 x) const
+    int BitBoard::bitcount(quint64 x)
     {
         // Some constants needed in this function
         const quint64 m1 = Q_UINT64_C(0x5555555555555555);  // Binary: 0101....

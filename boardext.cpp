@@ -469,12 +469,12 @@
         {
             const Piece currPiece = at(col + i * deltaCol)[row + i * deltaRow];
 
-            // If a piece of our own color is found, the enemy can never get a line of 4 pieces
+            // If a piece of the enemy color is found, we can never get a line of 4 pieces
             // So no threat is found
             if(currPiece == enemyColor)
                 return false;
 
-            // If an enemy piece is found we increase the amount of enemy pieces that's in place
+            // If one of our own pieces is found we increase the amount of enemy pieces that's in place
             if(currPiece == ownColor) ++piecesInPlace;
         }
 

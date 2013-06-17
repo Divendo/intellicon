@@ -69,7 +69,7 @@
             statusUpdate(TreeSearching);
 
             // Load some precalculated positions from the database
-            if(PerfectPlayerThread::knownPositions[8].empty())
+            if(PerfectPlayerThread::knownPositions[0].empty())
                 loadPositionDatabase();
 
             doMove(3);
@@ -234,22 +234,16 @@
         return val >> 3;
     }
 
+    // Since only the positions with 8, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36 or 39 pieces will be saved we only need 12 QHash maps
+    // This is because only positions which are a multiple of 3 are saved, and only if their search depth was greater than 3 (therefore, no positions with 42 pieces will be saved)
+    // Also all positions with 8 pieces will be saved (they will be read from the database)
+    // The index of each QHash map is calculated as follows: numberOfPieces / 3 - 2
     QHash<quint64, PerfectPlayerThread::PositionValue> PerfectPlayerThread::knownPositions[] =
     {
         QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
         QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
         QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
         QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>()
-        // Since the minimal required depth to store something in the database is 4 none of the last 3 positions will ever get in the database
     };
 
     void PerfectPlayerThread::loadPositionDatabase()
@@ -259,7 +253,19 @@
         file.open(QIODevice::ReadOnly);
 
         // Reserve the exact size needed for the database
-        PerfectPlayerThread::knownPositions[8].reserve(67557);
+        PerfectPlayerThread::knownPositions[0].reserve(67557);
+
+        // Reserve some space for the other hash maps
+        /*PerfectPlayerThread::knownPositions[1].reserve(10);
+        PerfectPlayerThread::knownPositions[2].reserve(50);
+        PerfectPlayerThread::knownPositions[3].reserve(1300);
+        PerfectPlayerThread::knownPositions[4].reserve(8500);
+        PerfectPlayerThread::knownPositions[5].reserve(56000);
+        PerfectPlayerThread::knownPositions[6].reserve(215000);
+        PerfectPlayerThread::knownPositions[7].reserve(150000);
+        PerfectPlayerThread::knownPositions[8].reserve(325000);
+        PerfectPlayerThread::knownPositions[9].reserve(375000);
+        PerfectPlayerThread::knownPositions[10].reserve(250000);*/
 
         // Read the precalculated database
         QByteArray line;
@@ -268,7 +274,7 @@
             // Check if we're not interrupted
             if(!keepRunning)
             {
-                PerfectPlayerThread::knownPositions[8].clear();
+                PerfectPlayerThread::knownPositions[0].clear();
                 return;
             }
 
@@ -278,7 +284,7 @@
             const char& value = line.at(line.size() - 2);
             const BitBoard bitBoard = BitBoard(BitBoard::board2int(line.left(42).data()));
             const quint64 dbPosition = qMin(bitBoard.toInt(), bitBoard.flip());
-            PerfectPlayerThread::knownPositions[8][dbPosition] = createPositionValue(value == '2' ? Win : (value == '1' ? Draw : Loss), 0);
+            PerfectPlayerThread::knownPositions[0][dbPosition] = createPositionValue(value == '2' ? Win : (value == '1' ? Draw : Loss), 0);
         }
     }
 
@@ -305,25 +311,28 @@
         }
     }
 
-    PerfectPlayerThread::PositionValue PerfectPlayerThread::alphaBeta(const BitBoard& bitBoard, PositionValue alpha, PositionValue beta)
+    PerfectPlayerThread::PositionValue PerfectPlayerThread::alphaBeta(const quint64& bitBoard, const quint64& redBoard, const quint64& yellowBoard, PositionValue alpha, PositionValue beta)
     {
         // The amount of pieces on the board
-        const int pieceCount = bitBoard.pieceCount();
+        const int pieceCount = BitBoard::pieceCount(redBoard, yellowBoard);
+
+        // Whose turn it is
+        const bool redToMove = pieceCount % 2 == 0;
 
         // The position that should be used as index in the database
-        const quint64 dbPosition = qMin(bitBoard.toInt(), bitBoard.flip());
+        const quint64 dbPosition = qMin(bitBoard, BitBoard::flip(bitBoard));
 
         // First we try to look up the value of this position in our database
-        if(pieceCount >= 8 && pieceCount < 38 && PerfectPlayerThread::knownPositions[pieceCount].contains(dbPosition))
+        if(pieceCount >= 8 && pieceCount <= 39 && pieceCount % 3 == 0 && PerfectPlayerThread::knownPositions[pieceCount / 3 - 2].contains(dbPosition))
         {
-            const PositionValue& posVal = PerfectPlayerThread::knownPositions[pieceCount][dbPosition];
+            const PositionValue& posVal = PerfectPlayerThread::knownPositions[pieceCount / 3 - 2][dbPosition];
             const PositionValue val = getValue(posVal);
 
             // If the value isn't clear because a cutoff occurred we may want to sort out which value it has
             if(val == DrawWin || val == DrawLoss)
             {
                 // If the parent node would choose this move anyway, no further evaluation is needed
-                if(bitBoard.redToMove() ? val < beta : val > alpha)
+                if(redToMove ? val < beta : val > alpha)
                     return createPositionValue(val, 1 + getDepth(posVal));
             }
             else
@@ -337,7 +346,7 @@
             return createPositionValue(ValueUnknown, 0);
 
         // If the board is full, it's a draw
-        if(bitBoard.isFull())
+        if(BitBoard::isFull(bitBoard))
             return createPositionValue(Draw, 0);
 
         // Check if we're not interrupted
@@ -347,11 +356,11 @@
         // Also check which moves would make it possible for the opponent to win directly (and so we don't play them)
         std::vector<int> moves;
         moves.reserve(7);
-        const quint64 other = bitBoard.redToMove() ? bitBoard.yellowToInt() : bitBoard.redToInt();
+        const quint64& other = redToMove ? yellowBoard : redBoard;
         for(int col = 0; col < 7; ++col)
         {
-            if(!bitBoard.canMove(col)) continue;
-            const int row = bitBoard.playableRow(col);
+            if(!BitBoard::canMove(bitBoard, col)) continue;
+            const int row = BitBoard::playableRow(bitBoard, col);
 
             // Check if the opponent can win on the square above the playable square in this column
             const bool winOnTop = BitBoard::isWinner(other | (Q_UINT64_C(2) << (row + 7 * col)));
@@ -361,7 +370,7 @@
             {
                 // A double threat can't be stopped
                 if(winOnTop)
-                    return createPositionValue(bitBoard.redToMove() ? Loss : Win, 0);
+                    return createPositionValue(redToMove ? Loss : Win, 0);
 
                 // It's a forced move
                 moves.clear();
@@ -370,8 +379,8 @@
                 // If another forced move is found, we can't stop the opponent from winning
                 while(++col < 7)
                 {
-                    if(BitBoard::isWinner(other | (Q_UINT64_C(1) << (bitBoard.playableRow(col) + 7 * col))))
-                        return createPositionValue(bitBoard.redToMove() ? Loss : Win, 0);
+                    if(BitBoard::isWinner(other | (Q_UINT64_C(1) << (BitBoard::playableRow(bitBoard, col) + 7 * col))))
+                        return createPositionValue(redToMove ? Loss : Win, 0);
                 }
 
                 // Stop looking for any other moves
@@ -388,12 +397,12 @@
 
         // If no moves were found, we lose
         if(moves.empty())
-            return createPositionValue(bitBoard.redToMove() ? Loss : Win, 0);
+            return createPositionValue(redToMove ? Loss : Win, 0);
 
         // Find a value for each move
         const unsigned int moveCount = moves.size();
         bool valUnknown = false;
-        PositionValue bestScore = bitBoard.redToMove() ? Loss : Win;
+        PositionValue bestScore = redToMove ? Loss : Win;
         quint16 bestDepth = 0;
         for(unsigned int move = 0; move < moveCount; ++move)
         {
@@ -401,16 +410,16 @@
             if(!keepRunning) return createPositionValue(ValueUnknown, 0);
 
             // Dynamically order the moves using the historyHeuristic board
-            int row = bitBoard.playableRow(moves[move]);
-            int bestHistory = historyHeuristic[bitBoard.redToMove()][6 * moves[move] + row];
+            int row = BitBoard::playableRow(bitBoard, moves[move]);
+            int bestHistory = historyHeuristic[redToMove][6 * moves[move] + row];
             unsigned int bestMoveIndex = move;
             for(unsigned int i = move + 1; i < moveCount; ++i)
             {
-                const int r = bitBoard.playableRow(moves[i]);
-                if(historyHeuristic[bitBoard.redToMove()][6 * moves[i] + r] > bestHistory)
+                const int r = BitBoard::playableRow(bitBoard, moves[i]);
+                if(historyHeuristic[redToMove][6 * moves[i] + r] > bestHistory)
                 {
                     row = r;
-                    bestHistory = historyHeuristic[bitBoard.redToMove()][6 * moves[i] + r];
+                    bestHistory = historyHeuristic[redToMove][6 * moves[i] + r];
                     bestMoveIndex = i;
                 }
             }
@@ -420,7 +429,10 @@
             moves[move] = bestMoveCol;
 
             // Make the move
-            PositionValue posVal = alphaBeta(bitBoard.move(bestMoveCol), alpha, beta);
+            PositionValue posVal = alphaBeta(BitBoard::move(bitBoard, bestMoveCol, row, redToMove),
+                                             redToMove ? redBoard | (Q_UINT64_C(1) << (row + bestMoveCol * 7)) : redBoard,
+                                             redToMove ? yellowBoard : yellowBoard | (Q_UINT64_C(1) << (row + bestMoveCol * 7)),
+                                             alpha, beta);
             PositionValue val = getValue(posVal);
 
             // Check if we're not interrupted
@@ -431,7 +443,7 @@
             else
             {
                 // Set the alpha/beta
-                if(bitBoard.redToMove())
+                if(redToMove)
                 {
                     if(val > bestScore)
                     {
@@ -466,16 +478,16 @@
                     {
                         // Punish badly chosen moves
                         for(unsigned int i = 0; i < move; ++i)
-                            --historyHeuristic[bitBoard.redToMove()][6 * moves[i] + bitBoard.playableRow(moves[i])];
+                            --historyHeuristic[redToMove][6 * moves[i] + BitBoard::playableRow(bitBoard, moves[i])];
 
                         // Reward the good chosen move
-                        historyHeuristic[bitBoard.redToMove()][6 * moves[move] + bitBoard.playableRow(moves[move])] += move;
+                        historyHeuristic[redToMove][6 * moves[move] + BitBoard::playableRow(bitBoard, moves[move])] += move;
                     }
 
                     // If we do a cutoff at a Draw position it may also be a Win or Loss
                     // But only if not all children have been evaluated yet
                     if(val == Draw && move != moveCount)
-                        val = bitBoard.redToMove() ? DrawWin : DrawLoss;
+                        val = redToMove ? DrawWin : DrawLoss;
 
                     // Create our result
                     const PositionValue out = createPositionValue(val, 1 + bestDepth);
@@ -483,8 +495,8 @@
                     // Only store the position in the database if there are more than 8 pieces on the board
                     // Also only store positions where red is to move (to reduce the database size)
                     // Also only store positions that took a lot of work
-                    if(pieceCount > 8 && bestDepth > 3)
-                        PerfectPlayerThread::knownPositions[pieceCount][dbPosition] = out;
+                    if(pieceCount > 8 && pieceCount % 3 == 0 && bestDepth > 3)
+                        PerfectPlayerThread::knownPositions[pieceCount / 3 - 2][dbPosition] = out;
 
                     return out;
                 }
@@ -503,8 +515,8 @@
 
         // Only store the position in the database if there are more than 8 pieces on the board
         // Also only store positions that took a lot of work
-        if(pieceCount > 8 && bestDepth > 3)
-            PerfectPlayerThread::knownPositions[pieceCount][dbPosition] = out;
+        if(pieceCount > 8 && pieceCount % 3 == 0 && bestDepth > 3)
+            PerfectPlayerThread::knownPositions[pieceCount / 3 - 2][dbPosition] = out;
 
         return out;
     }
@@ -554,21 +566,11 @@
             if(!keepRunning) return;
 
             // Initialize the move database (if it hasn't been initialized already)
-            if(PerfectPlayerThread::knownPositions[8].empty())
+            if(PerfectPlayerThread::knownPositions[0].empty())
                 loadPositionDatabase();
 
             // Create a BitBoard
             const BitBoard bitBoard(BitBoard::board2int(board));
-
-            // Check if we're not interrupted
-            if(!keepRunning) return;
-
-            // Check if the current position is known in the database, if so we know what the best is that we can do
-            const quint64 dbPosition = qMin(bitBoard.toInt(), bitBoard.flip());     // The position that should be used as index in the database
-            const int pieceCount = bitBoard.pieceCount();                           // The amount of pieces on the board
-            PositionValue currPosVal = ValueUnknown;
-            if(pieceCount >= 8 && pieceCount < 38 && PerfectPlayerThread::knownPositions[pieceCount].contains(dbPosition))
-                currPosVal = getValue(PerfectPlayerThread::knownPositions[pieceCount][dbPosition]);
 
             // Check if we're not interrupted
             if(!keepRunning) return;
@@ -615,7 +617,8 @@
                 moves[move] = bestMoveCol;
 
                 // Try to solve the chosen move
-                const PositionValue posVal = alphaBeta(bitBoard.move(bestMoveCol), alpha, beta);
+                const BitBoard newBoard = bitBoard.move(bestMoveCol);
+                const PositionValue posVal = alphaBeta(newBoard.toInt(), newBoard.redToInt(), newBoard.yellowToInt(), alpha, beta);
                 const PositionValue val = getValue(posVal);
                 const quint16 depth = getDepth(posVal);
 
