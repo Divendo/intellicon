@@ -55,25 +55,25 @@
 
     void MenuWindow::on_buttonStartGame_clicked()
     {
-        const QString p1Type = ui->comboP1Type->currentText();
-        const QString p2Type = ui->comboP2Type->currentText();
+        const int p1Type = ui->comboP1Type->currentIndex();
+        const int p2Type = ui->comboP2Type->currentIndex();
 
         Player* p1 = 0;
         Player* p2 = 0;
 
-        if(p1Type == "Menselijke speler")               p1 = new HumanPlayer("Mens", true);
-        else if(p1Type == "Domme computer")             p1 = new DumbPlayer("PC Dom", true);
-        else if(p1Type == "Makkelijke computer")        p1 = new ChancePlayer("PC Makkelijk", true, 1, 4);
-        else if(p1Type == "Gemiddelde computer")        p1 = new ChancePlayer("PC Gemiddeld", true, 3, 5);
-        else if(p1Type == "Moeilijke computer")         p1 = new ChancePlayer("PC Moeilijk", true, 5, 6);
-        else if(p1Type == "Perfect spelende computer")  p1 = new PerfectPlayer("PC Perfect", true);
+        if(p1Type == 0)         p1 = new HumanPlayer(tr("Mens"), true);
+        else if(p1Type == 1)    p1 = new DumbPlayer(tr("PC Dom"), true);
+        else if(p1Type == 2)    p1 = new ChancePlayer(tr("PC Makkelijk"), true, 1, 4);
+        else if(p1Type == 3)    p1 = new ChancePlayer(tr("PC Gemiddeld"), true, 3, 5);
+        else if(p1Type == 4)    p1 = new ChancePlayer(tr("PC Moeilijk"), true, 5, 6);
+        else if(p1Type == 5)    p1 = new PerfectPlayer(tr("PC Perfect"), true);
 
-        if(p2Type == "Menselijke speler")               p2 = new HumanPlayer("Mens", false);
-        else if(p2Type == "Domme computer")             p2 = new DumbPlayer("PC Dom", false);
-        else if(p2Type == "Makkelijke computer")        p2 = new ChancePlayer("PC Makkelijk", false, 1, 4);
-        else if(p2Type == "Gemiddelde computer")        p2 = new ChancePlayer("PC Gemiddeld", false, 3, 5);
-        else if(p2Type == "Moeilijke computer")         p2 = new ChancePlayer("PC Moeilijk", false, 5, 6);
-        else if(p2Type == "Perfect spelende computer")  p2 = new PerfectPlayer("PC Perfect", false);
+        if(p2Type == 0)         p2 = new HumanPlayer(tr("Mens"), true);
+        else if(p2Type == 1)    p2 = new DumbPlayer(tr("PC Dom"), true);
+        else if(p2Type == 2)    p2 = new ChancePlayer(tr("PC Makkelijk"), true, 1, 4);
+        else if(p2Type == 3)    p2 = new ChancePlayer(tr("PC Gemiddeld"), true, 3, 5);
+        else if(p2Type == 4)    p2 = new ChancePlayer(tr("PC Moeilijk"), true, 5, 6);
+        else if(p2Type == 5)    p2 = new PerfectPlayer(tr("PC Perfect"), true);
 
         hide();
         startGame(p1, p2);

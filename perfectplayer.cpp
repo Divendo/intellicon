@@ -58,25 +58,29 @@
         switch(phase)
         {
             case FindingPlayableCols:
-                msg = "Speelbare kolommen zoeken...";
+                msg = tr("Speelbare kolommen zoeken...");
             break;
             case TryingWinningMove:
-                msg = "Winnende zet proberen...";
+                msg = tr("Winnende zet proberen...");
             break;
             case BlockingLosingMove:
-                msg = "Verliezende zet voorkomen...";
+                msg = tr("Verliezende zet voorkomen...");
             break;
             case SearchingSolutions:
-                msg = QString("Oplossingen zoeken (%1%)...").arg(100 * n / 7);
+                //: At %1 the progress will be inserted as a percentage
+                msg = tr("Oplossingen zoeken (%1%)...").arg(100 * n / 7);
             break;
             case TreeSearching:
                 if(n == - 1)
-                    msg = "Zetten vooruit denken...";
+                    msg = tr("Zetten vooruit denken...");
                 else
-                    msg = QString("Zetten vooruit denken (%1%)...").arg(n);
+                {
+                    //: At %1 the progress will be inserted as a percentage
+                    msg = tr("Zetten vooruit denken (%1%)...").arg(n);
+                }
             break;
             case ChoosingAMove:
-                msg = "Een zet kiezen aan de hand van de gevonden oplossingen...";
+                msg = tr("Een zet kiezen aan de hand van de gevonden oplossingen...");
             break;
         }
         statusUpdate(msg);
