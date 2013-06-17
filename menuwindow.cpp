@@ -68,12 +68,12 @@
         else if(p1Type == 4)    p1 = new ChancePlayer(tr("PC Moeilijk"), true, 5, 6);
         else if(p1Type == 5)    p1 = new PerfectPlayer(tr("PC Perfect"), true);
 
-        if(p2Type == 0)         p2 = new HumanPlayer(tr("Mens"), true);
-        else if(p2Type == 1)    p2 = new DumbPlayer(tr("PC Dom"), true);
-        else if(p2Type == 2)    p2 = new ChancePlayer(tr("PC Makkelijk"), true, 1, 4);
-        else if(p2Type == 3)    p2 = new ChancePlayer(tr("PC Gemiddeld"), true, 3, 5);
-        else if(p2Type == 4)    p2 = new ChancePlayer(tr("PC Moeilijk"), true, 5, 6);
-        else if(p2Type == 5)    p2 = new PerfectPlayer(tr("PC Perfect"), true);
+        if(p2Type == 0)         p2 = new HumanPlayer(tr("Mens"), false);
+        else if(p2Type == 1)    p2 = new DumbPlayer(tr("PC Dom"), false);
+        else if(p2Type == 2)    p2 = new ChancePlayer(tr("PC Makkelijk"), false, 1, 4);
+        else if(p2Type == 3)    p2 = new ChancePlayer(tr("PC Gemiddeld"), false, 3, 5);
+        else if(p2Type == 4)    p2 = new ChancePlayer(tr("PC Moeilijk"), false, 5, 6);
+        else if(p2Type == 5)    p2 = new PerfectPlayer(tr("PC Perfect"), false);
 
         hide();
         startGame(p1, p2);
