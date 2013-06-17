@@ -502,7 +502,6 @@
         const PositionValue out = createPositionValue(bestScore, 1 + bestDepth);
 
         // Only store the position in the database if there are more than 8 pieces on the board
-        // Also only store positions where red is to move (to reduce the database size)
         // Also only store positions that took a lot of work
         if(pieceCount > 8 && bestDepth > 3)
             PerfectPlayerThread::knownPositions[pieceCount][dbPosition] = out;
@@ -522,18 +521,12 @@
         // Check how many results we have and directly check what the best result is
         unsigned int resultCount = 0;
         MoveSmartness bestMove = Unknown;
-        int bestMoveCount = 0;
-        bool hasTreeSearchMoves = false;
+        int goodMoveCount = 0;
         for(std::vector<MoveSmartness>::const_iterator pos = results.begin(); pos != results.end(); ++pos)
         {
-            if(*pos != Unknown) ++resultCount;
-            if(*pos == bestMove) ++bestMoveCount;
-            if(*pos > bestMove)
-            {
-                bestMove = *pos;
-                bestMoveCount = 1;
-            }
-            if(*pos == NeedsTreeSearch) hasTreeSearchMoves = true;
+            if(*pos != Unknown)         ++resultCount;
+            if(*pos >= NotAllSolved)    ++goodMoveCount;
+            if(*pos > bestMove)         bestMove = *pos;
         }
 
         // Update the status on how many results we've found
@@ -543,16 +536,16 @@
         // We can stop looking if we've found a perfect move
         // For yellow this is a move that will win the game
         // For red an AllSolved is enough since this means that red has an odd threat somewhere where it will win
-        if(resultCount != 7 && bestMove != (isRed ? AllSolved : AllSolvedWin)) return;
+        if(resultCount != 7 && bestMove < (isRed ? AllSolved : AllSolvedWin)) return;
         acceptSimulationDone = false;
         simulatorsKeepRunning = false;
 
         // Check if we're not interrupted
         if(!keepRunning) return;
 
-        // If there are some moves that may be solved by a tree search and we haven't found a winning move we'll perform a tree search
+        // If we haven't found a winning move, determine the best move using alpha-beta search
         // Note that for red an AllSolved means a win since he will win at the odd threat he has (or maybe sooner)
-        if(bestMoveCount > 1 && ((isRed && hasTreeSearchMoves && bestMove < AllSolved) || (!isRed && bestMove < AllSolvedWin && bestMove >= NotAllSolved)))
+        if(goodMoveCount > 1 && bestMove < (isRed ? AllSolved : AllSolvedWin))
         {
             // Update our status
             statusUpdate(TreeSearching, 0);
@@ -573,7 +566,7 @@
             // Check if the current position is known in the database, if so we know what the best is that we can do
             const quint64 dbPosition = qMin(bitBoard.toInt(), bitBoard.flip());     // The position that should be used as index in the database
             const int pieceCount = bitBoard.pieceCount();                           // The amount of pieces on the board
-            PositionValue currPosVal =  ValueUnknown;
+            PositionValue currPosVal = ValueUnknown;
             if(pieceCount >= 8 && pieceCount < 38 && PerfectPlayerThread::knownPositions[pieceCount].contains(dbPosition))
                 currPosVal = getValue(PerfectPlayerThread::knownPositions[pieceCount][dbPosition]);
 
@@ -585,16 +578,18 @@
             moves.reserve(7);
             for(int col = 0; col < 7; ++col)
             {
-                if(results[col] == (isRed ? NeedsTreeSearch : bestMove))
+                if(results[col] >= NotAllSolved)
                     moves.push_back(col);
             }
+
+            // Initialise the alpha and beta values
+            PositionValue alpha = Loss;
+            PositionValue beta = Win;
 
             // Try to solve each move
             const unsigned int moveCount = moves.size();
             int bestOptionCol = moves[0];
             int bestOptionDepth = 0;
-            PositionValue alpha = !isRed && currPosVal != ValueUnknown ? currPosVal : Loss;
-            PositionValue beta = isRed && currPosVal != ValueUnknown ? currPosVal : Win;
             for(unsigned int move = 0; move < moveCount; ++move)
             {
                 // Check if we're not interrupted
@@ -664,7 +659,7 @@
                 // Check if we're not interrupted
                 if(!keepRunning) return;
 
-                // Check if we can make do cutoff
+                // Check if we can make a cutoff
                 if(beta <= alpha)
                 {
                     // We may want to punish/reward certain parts of the historyHeuristic
