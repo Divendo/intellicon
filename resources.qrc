@@ -5,6 +5,7 @@
         <file alias="undo.png">resources/undo.png</file>
         <file alias="yellow-piece-small.png">resources/yellow piece small.png</file>
         <file alias="icon.png">resources/icon.png</file>
+        <file alias="redo.png">resources/redo.png</file>
     </qresource>
     <qresource prefix="/sprites">
         <file alias="board-foreground.png">resources/board-foreground.png</file>

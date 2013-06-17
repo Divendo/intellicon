@@ -59,6 +59,16 @@
         connectRed(red);
         connectYellow(yellow);
         clearWinner();
+        if(red->isHuman() || yellow->isHuman())
+        {
+            ui->buttonUndoMove->setText(tr("Zet ongedaan maken"));
+            ui->buttonUndoMove->setIcon(QIcon(":/icons/undo.png"));
+        }
+        else
+        {
+            ui->buttonUndoMove->setText(tr("Spel herstarten"));
+            ui->buttonUndoMove->setIcon(QIcon(":/icons/redo.png"));
+        }
         board.startGame();
         show();
     }
