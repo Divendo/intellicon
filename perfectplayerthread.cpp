@@ -323,7 +323,7 @@
         const quint64 dbPosition = qMin(bitBoard, BitBoard::flip(bitBoard));
 
         // First we try to look up the value of this position in our database
-        if(pieceCount >= 8 && pieceCount <= 39 && pieceCount % 3 == 0 && PerfectPlayerThread::knownPositions[pieceCount / 3 - 2].contains(dbPosition))
+        if(pieceCount >= 8 && pieceCount <= 39 && (pieceCount == 8 || pieceCount % 3 == 0) && PerfectPlayerThread::knownPositions[pieceCount / 3 - 2].contains(dbPosition))
         {
             const PositionValue& posVal = PerfectPlayerThread::knownPositions[pieceCount / 3 - 2][dbPosition];
             const PositionValue val = getValue(posVal);
