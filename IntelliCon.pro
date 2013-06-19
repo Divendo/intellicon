@@ -27,7 +27,8 @@ SOURCES += main.cpp\
     threatsolution.cpp \
     movesimulator.cpp \
     bitboard.cpp \
-    chanceplayer.cpp
+    chanceplayer.cpp \
+    alphabetasearcher.cpp
 
 HEADERS  += gamewindow.h \
     gameboard.h \
@@ -44,7 +45,8 @@ HEADERS  += gamewindow.h \
     linethreat.h \
     movesimulator.h \
     bitboard.h \
-    chanceplayer.h
+    chanceplayer.h \
+    alphabetasearcher.h
 
 FORMS    += gamewindow.ui \
     menuwindow.ui \
