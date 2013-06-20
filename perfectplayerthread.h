@@ -20,10 +20,11 @@
 
 #include <QObject>
 #include <QThreadPool>
-#include <QHash>
+#include <map>
 #include "boardext.h"
 #include "movesimulator.h"
 #include "bitboard.h"
+#include "alphabetasearcher.h"
 
 enum StatusPhase
 {
@@ -42,6 +43,7 @@ class PerfectPlayerThread : public QObject
 
     public:
         PerfectPlayerThread(const bool& isRed);
+        ~PerfectPlayerThread();
 
     signals:
         void doMove(const int& col);
@@ -54,10 +56,12 @@ class PerfectPlayerThread : public QObject
 
     private:
         bool isRed;                     // The color of the player
+        BoardExt board;                 // The board (extended version that can search for threats etc)
         bool keepRunning;               // Whether we should keep searching for moves (true) or are interrupted (false)
         bool simulatorsKeepRunning;     // Whether the simulators should keep searching for a solution (true) or not (false)
-        BoardExt board;                 // The board (extended version that can search for threats etc)
         bool acceptSimulationDone;      // Whether to accept incoming results from simulations
+        bool alphaBetaKeepRunning;      // Whether we should keep searching for moves using alpha-beta (true) or if we interupt that search (false)
+        bool acceptAlphaBetaResults;    // Whether we accept incoming results from the alpha-beta search
 
         /// These functions return -1 if no move is found, if a move is found the column of the move is returned
         // Tries to find a move that directly wins the game
@@ -65,42 +69,23 @@ class PerfectPlayerThread : public QObject
         // Tries to block any direct threat of the enemy that would win the game otherwise
         int blockEnemyWinningMove();
 
-        // Returns per column whether all threats can be solved if we'd move there
-        std::vector<MoveSmartness> tryMoves();
+        /// A struct that represents the result of an AlphaBetaSearcher
+        /// The result consists out of the result reported by the searcher and a flag indicating whether the result has been reported
+        struct AlphaBetaResult
+        {
+            bool reported;
+            AlphaBetaSearcher::PositionValue result;
 
-        std::vector<MoveSmartness> results;         // The results of the move simulations
+            AlphaBetaResult()
+            : reported(false), result(AlphaBetaSearcher::ValueUnknown) {}
+        };
 
-        /// Functions for the search tree database
-        // PositionValue:
-        //  The first 3 bits in the unsigned int tell us the value of that position
-        //  The remaining bits tell us how deep we went (from that position on) to determine that value
-        typedef quint16 PositionValue;
-        const PositionValue ValueUnknown;
-        const PositionValue Loss;
-        const PositionValue DrawLoss;
-        const PositionValue Draw;
-        const PositionValue DrawWin;
-        const PositionValue Win;
-        // Creates a PositionValue
-        PositionValue createPositionValue(const PositionValue& val, const quint16& depth);
-        // Get the value part of a PositionValue
-        PositionValue getValue(const PositionValue& val);
-        // Get how deep we went for this PositionValue
-        quint16 getDepth(const PositionValue& val);
-
-        // Positions of which the value is known
-        static QHash<quint64, PositionValue> knownPositions[];
-        // Load the known position from the database
-        void loadPositionDatabase();
-        // Used for the history heuristic
-        int historyHeuristic[2][42];
-        // Initialise the history heuristic array
-        void initHistoryHeuristic();
-        // Finds the value of the given position
-        PositionValue alphaBeta(const quint64& bitBoard, const quint64& redBoard, const quint64& yellowBoard, PositionValue alpha, PositionValue beta);
+        std::vector<MoveSmartness> simulationResults;       // The results of the move simulations
+        std::map<int, AlphaBetaResult> alphaBetaResults;  // The results of the alpha-beta searches
 
     private slots:
         void simulationDone(const int& col, const MoveSmartness& result);
+        void alphaBetaDone(const int& col, const quint16& result);
 };
 
 #endif // PERFECTPLAYERTHREAD_H

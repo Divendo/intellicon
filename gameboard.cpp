@@ -73,6 +73,26 @@
 
         gameEnded = false;
 
+        // A rather hard position to solve
+        /*FAKE_MOVE(3, 0, Red);
+        FAKE_MOVE(3, 2, Red);
+        FAKE_MOVE(3, 4, Red);
+        FAKE_MOVE(2, 1, Red);
+        FAKE_MOVE(2, 0, Yellow);
+        FAKE_MOVE(2, 2, Yellow);
+        FAKE_MOVE(3, 1, Yellow);
+        FAKE_MOVE(3, 3, Yellow);*/
+
+        // A really hard position to solve
+        /*FAKE_MOVE(0, 2, Red);
+        FAKE_MOVE(3, 0, Red);
+        FAKE_MOVE(4, 0, Red);
+        FAKE_MOVE(6, 0, Red);
+        FAKE_MOVE(0, 0, Yellow);
+        FAKE_MOVE(0, 1, Yellow);
+        FAKE_MOVE(0, 3, Yellow);
+        FAKE_MOVE(5, 0, Yellow);*/
+
         if(turn == Red)     redMoveRequest(board);
         else                yellowMoveRequest(board);
     }

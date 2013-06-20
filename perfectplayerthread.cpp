@@ -22,13 +22,19 @@
 
 // Public:
     PerfectPlayerThread::PerfectPlayerThread(const bool& isRed)
-    : isRed(isRed), keepRunning(false), simulatorsKeepRunning(false), board(isRed),
-    ValueUnknown(0), Loss(1), DrawLoss(2), Draw(3), DrawWin(4), Win(5)
+    : isRed(isRed), board(isRed), keepRunning(false), simulatorsKeepRunning(false), alphaBetaKeepRunning(false)
     {
         qRegisterMetaType<StatusPhase>("MoveSmartness");
+    }
 
-        // Initialise the historyHeuristic array
-        initHistoryHeuristic();
+    PerfectPlayerThread::~PerfectPlayerThread()
+    {
+        // Interrupt all running threads
+        simulatorsKeepRunning = false;
+        alphaBetaKeepRunning = false;
+
+        // Wait for all running threads to exit
+        QThreadPool::globalInstance()->waitForDone();
     }
 
 // Public slots:
@@ -69,8 +75,8 @@
             statusUpdate(TreeSearching);
 
             // Load some precalculated positions from the database
-            if(PerfectPlayerThread::knownPositions[0].empty())
-                loadPositionDatabase();
+            if(!AlphaBetaSearcher::positionDatabaseLoaded())
+                AlphaBetaSearcher::loadPositionDatabase();
 
             doMove(3);
             return;
@@ -97,7 +103,7 @@
         else if(!keepRunning) return;
 
         // This list is going to keep track of how smart each possible move is
-        results = std::vector<MoveSmartness>(7, Unknown);
+        simulationResults = std::vector<MoveSmartness>(7, Unknown);
         unsigned int resultCount = 0;
 
         // Check for each column if solutions can be found
@@ -110,7 +116,7 @@
             // If this column isn't playable, we mark it as impossible
             if(board.playableRow(col) == -1)
             {
-                results[col] = Impossible;
+                simulationResults[col] = Impossible;
                 statusUpdate(SearchingSolutions, ++resultCount);
                 continue;
             }
@@ -118,7 +124,7 @@
             // Check if playing this column doesn't lead to a direct lose
             if(board.playableRow(col) != 5 && board.hasLevel3Threat(col, board.playableRow(col) + 1))
             {
-                results[col] = DirectLose;
+                simulationResults[col] = DirectLose;
                 statusUpdate(SearchingSolutions, ++resultCount);
                 continue;
             }
@@ -142,7 +148,7 @@
             std::vector<unsigned int> cols;
             for(int col = 0; col < 7; ++col)
             {
-                if(results[col] == DirectLose)
+                if(simulationResults[col] == DirectLose)
                     cols.push_back(col);
             }
             if(cols.empty())
@@ -214,313 +220,6 @@
         return -1;
     }
 
-    PerfectPlayerThread::PositionValue PerfectPlayerThread::createPositionValue(const PositionValue& val, const quint16& depth)
-    {
-        // Lower 3 bits are the value
-        // The rest of the bits represent the depth
-        return val | (depth << 3);
-    }
-
-    PerfectPlayerThread::PositionValue PerfectPlayerThread::getValue(const PositionValue& val)
-    {
-        // 7 is in binary: 111
-        // So we only get the lowest 3 bits
-        return val & static_cast<quint16>(7);
-    }
-
-    quint16 PerfectPlayerThread::getDepth(const PositionValue& val)
-    {
-        // Throw away the 3 lowest bits
-        return val >> 3;
-    }
-
-    // Since only the positions with 8, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36 or 39 pieces will be saved we only need 12 QHash maps
-    // This is because only positions which are a multiple of 3 are saved, and only if their search depth was greater than 3 (therefore, no positions with 42 pieces will be saved)
-    // Also all positions with 8 pieces will be saved (they will be read from the database)
-    // The index of each QHash map is calculated as follows: numberOfPieces / 3 - 2
-    QHash<quint64, PerfectPlayerThread::PositionValue> PerfectPlayerThread::knownPositions[] =
-    {
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(),
-        QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>(), QHash<quint64, PerfectPlayerThread::PositionValue>()
-    };
-
-    void PerfectPlayerThread::loadPositionDatabase()
-    {
-        // Open the file
-        QFile file(":/data/positions.db");
-        file.open(QIODevice::ReadOnly);
-
-        // Reserve the exact size needed for the database
-        PerfectPlayerThread::knownPositions[0].reserve(67557);
-
-        // Reserve some space for the other hash maps
-        /*PerfectPlayerThread::knownPositions[1].reserve(10);
-        PerfectPlayerThread::knownPositions[2].reserve(50);
-        PerfectPlayerThread::knownPositions[3].reserve(1300);
-        PerfectPlayerThread::knownPositions[4].reserve(8500);
-        PerfectPlayerThread::knownPositions[5].reserve(56000);
-        PerfectPlayerThread::knownPositions[6].reserve(215000);
-        PerfectPlayerThread::knownPositions[7].reserve(150000);
-        PerfectPlayerThread::knownPositions[8].reserve(325000);
-        PerfectPlayerThread::knownPositions[9].reserve(375000);
-        PerfectPlayerThread::knownPositions[10].reserve(250000);*/
-
-        // Read the precalculated database
-        QByteArray line;
-        while(!file.atEnd())
-        {
-            // Check if we're not interrupted
-            if(!keepRunning)
-            {
-                PerfectPlayerThread::knownPositions[0].clear();
-                return;
-            }
-
-            line = file.readLine();
-            if(line.size() != 44) break;
-
-            const char& value = line.at(line.size() - 2);
-            const BitBoard bitBoard = BitBoard(BitBoard::board2int(line.left(42).data()));
-            const quint64 dbPosition = qMin(bitBoard.toInt(), bitBoard.flip());
-            PerfectPlayerThread::knownPositions[0][dbPosition] = createPositionValue(value == '2' ? Win : (value == '1' ? Draw : Loss), 0);
-        }
-    }
-
-    void PerfectPlayerThread::initHistoryHeuristic()
-    {
-        // Describes the dimensions of the board
-        const int width = 7;
-        const int height = 6;
-
-        // Fills every square in the historyHeuristic array with the number of possible threats on that square
-        for(int side = 0; side < 2; ++side)
-        {
-            for(int col = 0; col < (width + 1) / 2; ++col)
-            {
-                for(int row = 0; row < (height + 1) / 2; ++row)
-                {
-                    historyHeuristic[side][height * col + row] =
-                    historyHeuristic[side][height * (width - 1 - col) + height - 1 - row] =
-                    historyHeuristic[side][height * col + height - 1 - row] =
-                    historyHeuristic[side][height * (width - 1 - col) + row] =
-                    4+qMin(3,col) + qMax(-1,qMin(3,row)-qMax(0,3-col)) + qMin(3,qMin(col,row)) + qMin(3,row);
-                }
-            }
-        }
-    }
-
-    PerfectPlayerThread::PositionValue PerfectPlayerThread::alphaBeta(const quint64& bitBoard, const quint64& redBoard, const quint64& yellowBoard, PositionValue alpha, PositionValue beta)
-    {
-        // The amount of pieces on the board
-        const int pieceCount = BitBoard::pieceCount(redBoard, yellowBoard);
-
-        // Whose turn it is
-        const bool redToMove = pieceCount % 2 == 0;
-
-        // The position that should be used as index in the database
-        const quint64 dbPosition = qMin(bitBoard, BitBoard::flip(bitBoard));
-
-        // First we try to look up the value of this position in our database
-        if(pieceCount >= 8 && pieceCount <= 39 && (pieceCount == 8 || pieceCount % 3 == 0) && PerfectPlayerThread::knownPositions[pieceCount / 3 - 2].contains(dbPosition))
-        {
-            const PositionValue& posVal = PerfectPlayerThread::knownPositions[pieceCount / 3 - 2][dbPosition];
-            const PositionValue val = getValue(posVal);
-
-            // If the value isn't clear because a cutoff occurred we may want to sort out which value it has
-            if(val == DrawWin || val == DrawLoss)
-            {
-                // If the parent node would choose this move anyway, no further evaluation is needed
-                if(redToMove ? val < beta : val > alpha)
-                    return createPositionValue(val, 1 + getDepth(posVal));
-            }
-            else
-                return createPositionValue(val, 1 + getDepth(posVal));
-        }
-
-        // If there are exactly 8 pieces on the board the database should have provided us with a value
-        // If no value was found in the database, then we're playing a forced move
-        // We see it as a Draw
-        if(pieceCount == 8)
-            return createPositionValue(ValueUnknown, 0);
-
-        // If the board is full, it's a draw
-        if(BitBoard::isFull(bitBoard))
-            return createPositionValue(Draw, 0);
-
-        // Check if we're not interrupted
-        if(!keepRunning) return createPositionValue(ValueUnknown, 0);
-
-        // Check if the opponent can win or if we have a forced move
-        // Also check which moves would make it possible for the opponent to win directly (and so we don't play them)
-        std::vector<int> moves;
-        moves.reserve(7);
-        const quint64& other = redToMove ? yellowBoard : redBoard;
-        for(int col = 0; col < 7; ++col)
-        {
-            if(!BitBoard::canMove(bitBoard, col)) continue;
-            const int row = BitBoard::playableRow(bitBoard, col);
-
-            // Check if the opponent can win on the square above the playable square in this column
-            const bool winOnTop = BitBoard::isWinner(other | (Q_UINT64_C(2) << (row + 7 * col)));
-
-            // Check if the opponent can win directly by playing this column
-            if(BitBoard::isWinner(other | (Q_UINT64_C(1) << (row + 7 * col))))
-            {
-                // A double threat can't be stopped
-                if(winOnTop)
-                    return createPositionValue(redToMove ? Loss : Win, 0);
-
-                // It's a forced move
-                moves.clear();
-                moves.push_back(col);
-
-                // If another forced move is found, we can't stop the opponent from winning
-                while(++col < 7)
-                {
-                    if(BitBoard::isWinner(other | (Q_UINT64_C(1) << (BitBoard::playableRow(bitBoard, col) + 7 * col))))
-                        return createPositionValue(redToMove ? Loss : Win, 0);
-                }
-
-                // Stop looking for any other moves
-                break;
-            }
-
-            // Only play this move if the opponent wouldn't win by it directly
-            if(!winOnTop)
-                moves.push_back(col);
-        }
-
-        // Check if we're not interrupted
-        if(!keepRunning) return createPositionValue(ValueUnknown, 0);
-
-        // If no moves were found, we lose
-        if(moves.empty())
-            return createPositionValue(redToMove ? Loss : Win, 0);
-
-        // Find a value for each move
-        const unsigned int moveCount = moves.size();
-        bool valUnknown = false;
-        PositionValue bestScore = redToMove ? Loss : Win;
-        quint16 bestDepth = 0;
-        for(unsigned int move = 0; move < moveCount; ++move)
-        {
-            // Check if we're not interrupted
-            if(!keepRunning) return createPositionValue(ValueUnknown, 0);
-
-            // Dynamically order the moves using the historyHeuristic board
-            int row = BitBoard::playableRow(bitBoard, moves[move]);
-            int bestHistory = historyHeuristic[redToMove][6 * moves[move] + row];
-            unsigned int bestMoveIndex = move;
-            for(unsigned int i = move + 1; i < moveCount; ++i)
-            {
-                const int r = BitBoard::playableRow(bitBoard, moves[i]);
-                if(historyHeuristic[redToMove][6 * moves[i] + r] > bestHistory)
-                {
-                    row = r;
-                    bestHistory = historyHeuristic[redToMove][6 * moves[i] + r];
-                    bestMoveIndex = i;
-                }
-            }
-            const int bestMoveCol = moves[bestMoveIndex];
-            for(; bestMoveIndex > move; --bestMoveIndex)
-                moves[bestMoveIndex] = moves[bestMoveIndex - 1];
-            moves[move] = bestMoveCol;
-
-            // Make the move
-            PositionValue posVal = alphaBeta(BitBoard::move(bitBoard, bestMoveCol, row, redToMove),
-                                             redToMove ? redBoard | (Q_UINT64_C(1) << (row + bestMoveCol * 7)) : redBoard,
-                                             redToMove ? yellowBoard : yellowBoard | (Q_UINT64_C(1) << (row + bestMoveCol * 7)),
-                                             alpha, beta);
-            PositionValue val = getValue(posVal);
-
-            // Check if we're not interrupted
-            if(!keepRunning) return createPositionValue(ValueUnknown, 0);
-
-            if(val == ValueUnknown)
-                valUnknown = true;
-            else
-            {
-                // Set the alpha/beta
-                if(redToMove)
-                {
-                    if(val > bestScore)
-                    {
-                        bestScore = val;
-                        bestDepth = getDepth(posVal);
-
-                        if(val > alpha)
-                            alpha = val;
-                    }
-                    else if(val == bestScore && getDepth(posVal) > bestDepth)
-                        bestDepth = getDepth(posVal);
-                }
-                else
-                {
-                    if(val < bestScore)
-                    {
-                        bestScore = val;
-                        bestDepth = getDepth(posVal);
-
-                        if(val < beta)
-                            beta = val;
-                    }
-                    else if(val == bestScore && getDepth(posVal) > bestDepth)
-                        bestDepth = getDepth(posVal);
-                }
-
-                // Check if we can make a cutoff
-                if(beta <= alpha)
-                {
-                    // Since we've cut off a part of the tree we increase the history score of this move
-                    if(move != 0)
-                    {
-                        // Punish badly chosen moves
-                        for(unsigned int i = 0; i < move; ++i)
-                            --historyHeuristic[redToMove][6 * moves[i] + BitBoard::playableRow(bitBoard, moves[i])];
-
-                        // Reward the good chosen move
-                        historyHeuristic[redToMove][6 * moves[move] + BitBoard::playableRow(bitBoard, moves[move])] += move;
-                    }
-
-                    // If we do a cutoff at a Draw position it may also be a Win or Loss
-                    // But only if not all children have been evaluated yet
-                    if(val == Draw && move != moveCount)
-                        val = redToMove ? DrawWin : DrawLoss;
-
-                    // Create our result
-                    const PositionValue out = createPositionValue(val, 1 + bestDepth);
-
-                    // Only store the position in the database if there are more than 8 pieces on the board
-                    // Also only store positions where red is to move (to reduce the database size)
-                    // Also only store positions that took a lot of work
-                    if(pieceCount > 8 && pieceCount % 3 == 0 && bestDepth > 3)
-                        PerfectPlayerThread::knownPositions[pieceCount / 3 - 2][dbPosition] = out;
-
-                    return out;
-                }
-            }
-        }
-
-        // Check if we're not interrupted
-        if(!keepRunning) return createPositionValue(ValueUnknown, 0);
-
-        // If a ValueUnknown was encountered, the value of this position is unknown
-        if(valUnknown)
-            return createPositionValue(ValueUnknown, 0);
-
-        // Create our result
-        const PositionValue out = createPositionValue(bestScore, 1 + bestDepth);
-
-        // Only store the position in the database if there are more than 8 pieces on the board
-        // Also only store positions that took a lot of work
-        if(pieceCount > 8 && pieceCount % 3 == 0 && bestDepth > 3)
-            PerfectPlayerThread::knownPositions[pieceCount / 3 - 2][dbPosition] = out;
-
-        return out;
-    }
-
 // Private slots:
     void PerfectPlayerThread::simulationDone(const int& col, const MoveSmartness& result)
     {
@@ -528,13 +227,13 @@
         if(!acceptSimulationDone) return;
 
         // Store the result in the list
-        results[col] = result;
+        simulationResults[col] = result;
 
         // Check how many results we have and directly check what the best result is
         unsigned int resultCount = 0;
         MoveSmartness bestMove = Unknown;
         int goodMoveCount = 0;
-        for(std::vector<MoveSmartness>::const_iterator pos = results.begin(); pos != results.end(); ++pos)
+        for(std::vector<MoveSmartness>::const_iterator pos = simulationResults.begin(); pos != simulationResults.end(); ++pos)
         {
             if(*pos != Unknown)         ++resultCount;
             if(*pos >= NotAllSolved)    ++goodMoveCount;
@@ -559,6 +258,11 @@
         // Note that for red an AllSolved means a win since he will win at the odd threat he has (or maybe sooner)
         if(goodMoveCount > 1 && bestMove < (isRed ? AllSolved : AllSolvedWin))
         {
+            // Note that if we've come here all MoveSimulator threads must have quit
+            // Because we either received all results and if we stopped earlier because we found a winning move,
+            // we wouldn't be here
+            // Therefore calling QThreadPool::globalInstance()->waitForDone() is not necessary
+
             // Update our status
             statusUpdate(TreeSearching, 0);
 
@@ -566,8 +270,8 @@
             if(!keepRunning) return;
 
             // Initialize the move database (if it hasn't been initialized already)
-            if(PerfectPlayerThread::knownPositions[0].empty())
-                loadPositionDatabase();
+            if(!AlphaBetaSearcher::positionDatabaseLoaded())
+                AlphaBetaSearcher::loadPositionDatabase();
 
             // Create a BitBoard
             const BitBoard bitBoard(BitBoard::board2int(board));
@@ -575,115 +279,32 @@
             // Check if we're not interrupted
             if(!keepRunning) return;
 
-            // Determine which moves we should check
-            std::vector<int> moves;
-            moves.reserve(7);
+            // We will accept results from the alpha-beta searchers and will also keep track of their results
+            alphaBetaKeepRunning = true;
+            acceptAlphaBetaResults = true;
+            alphaBetaResults.clear();
+
+            // Start a thread for each move to solve it using alpha-beta search
             for(int col = 0; col < 7; ++col)
             {
-                if(results[col] >= NotAllSolved)
-                    moves.push_back(col);
-            }
+                // If the move leads to a defeat or is impossible, there is no use in using alpha-beta search on it
+                if(simulationResults[col] < NotAllSolved) continue;
 
-            // Initialise the alpha and beta values
-            PositionValue alpha = Loss;
-            PositionValue beta = Win;
-
-            // Try to solve each move
-            const unsigned int moveCount = moves.size();
-            int bestOptionCol = moves[0];
-            int bestOptionDepth = 0;
-            for(unsigned int move = 0; move < moveCount; ++move)
-            {
                 // Check if we're not interrupted
                 if(!keepRunning) return;
 
-                // Use history heuristic to determine which move we could best choose
-                int row = bitBoard.playableRow(moves[move]);
-                int bestHistory = historyHeuristic[isRed][6 * moves[move] + row];
-                unsigned int bestMoveIndex = move;
-                for(unsigned int i = move + 1; i < moveCount; ++i)
-                {
-                    const int r = bitBoard.playableRow(moves[i]);
-                    if(historyHeuristic[isRed][6 * moves[i] + r] > bestHistory)
-                    {
-                        row = r;
-                        bestHistory = historyHeuristic[isRed][6 * moves[i] + r];
-                        bestMoveIndex = i;
-                    }
-                }
-                const int bestMoveCol = moves[bestMoveIndex];
-                for(; bestMoveIndex > move; --bestMoveIndex)
-                    moves[bestMoveIndex] = moves[bestMoveIndex - 1];
-                moves[move] = bestMoveCol;
+                // We remember that we still expect a result from this move
+                alphaBetaResults[col] = AlphaBetaResult();
 
                 // Try to solve the chosen move
-                const BitBoard newBoard = bitBoard.move(bestMoveCol);
-                const PositionValue posVal = alphaBeta(newBoard.toInt(), newBoard.redToInt(), newBoard.yellowToInt(), alpha, beta);
-                const PositionValue val = getValue(posVal);
-                const quint16 depth = getDepth(posVal);
-
-                // Update our status
-                statusUpdate(TreeSearching, 100 * (move + 1) / moveCount);
-
-                // Unknown values are useless
-                if(val == ValueUnknown)
-                    continue;
-
-                // Update alpha/beta
-                if(isRed)
-                {
-                    if(val > alpha)
-                    {
-                        bestOptionCol = bestMoveCol;
-                        bestOptionDepth = depth;
-                        alpha = val;
-                    }
-                    else if(val == alpha && depth > bestOptionDepth)
-                    {
-                        bestOptionCol = bestMoveCol;
-                        bestOptionDepth = depth;
-                    }
-                }
-                else
-                {
-                    if(val < beta)
-                    {
-                        bestOptionCol = bestMoveCol;
-                        bestOptionDepth = depth;
-                        beta = val;
-                    }
-                    else if(val == beta && depth > bestOptionDepth)
-                    {
-                        bestOptionCol = bestMoveCol;
-                        bestOptionDepth = depth;
-                    }
-                }
-
-                // Check if we're not interrupted
-                if(!keepRunning) return;
-
-                // Check if we can make a cutoff
-                if(beta <= alpha)
-                {
-                    // We may want to punish/reward certain parts of the historyHeuristic
-                    if(move != 0)
-                    {
-                        // Punish badly chosen moves
-                        for(unsigned int i = 0; i < move; ++i)
-                            --historyHeuristic[isRed][6 * moves[i] + bitBoard.playableRow(moves[i])];
-
-                        // Reward the good chosen move
-                        historyHeuristic[isRed][6 * moves[move] + bitBoard.playableRow(moves[move])] += move;
-                    }
-
-                    // Cutoff
-                    break;
-                }
+                const BitBoard newBoard = bitBoard.move(col);
+                AlphaBetaSearcher* searcher = new AlphaBetaSearcher(newBoard, col);
+                searcher->setInterruptedPointer(&alphaBetaKeepRunning);
+                connect(searcher, SIGNAL(done(const int&, const quint16&)), this, SLOT(alphaBetaDone(const int&, const quint16&)));
+                QThreadPool::globalInstance()->start(searcher);    // QThreadPool will clean up the searcher when it's done
             }
 
-            // Choose the best move
-            if(keepRunning)
-                doMove(bestOptionCol);
+            // Stop here
             return;
         }
 
@@ -693,7 +314,7 @@
         std::vector<unsigned int> cols;
         for(int col = 0; col < 7; ++col)
         {
-            if(results[col] == bestMove)
+            if(simulationResults[col] == bestMove)
                 cols.push_back(col);
         }
         if(cols.empty())
@@ -707,4 +328,102 @@
 
         if(keepRunning)
             doMove(cols[qrand() % cols.size()]);
+    }
+
+    void PerfectPlayerThread::alphaBetaDone(const int& col, const quint16& val)
+    {
+        // If we don't accept alpha-beta results, we stop here
+        if(!acceptAlphaBetaResults) return;
+
+        // Add the result
+        alphaBetaResults[col].reported = true;
+        alphaBetaResults[col].result = val;
+
+        // Count the results
+        unsigned int resultCount = 0;
+        AlphaBetaSearcher::PositionValue bestValue = isRed ? AlphaBetaSearcher::Loss : AlphaBetaSearcher::Win;
+        for(std::map<int, AlphaBetaResult>::const_iterator pos = alphaBetaResults.begin(); pos != alphaBetaResults.end(); ++pos)
+        {
+            if(pos->second.reported)
+            {
+                // Increase the result count
+                ++resultCount;
+
+                // The game theoretical value of the result in pos
+                const quint16 currVal = AlphaBetaSearcher::getValue(pos->second.result);
+
+                // An unknown value is still better than losing
+                if(currVal == AlphaBetaSearcher::ValueUnknown ?
+                    bestValue == (isRed ? AlphaBetaSearcher::Loss : AlphaBetaSearcher::Win) :
+                    (isRed ? currVal > bestValue : currVal < bestValue))
+                {
+                    bestValue = currVal;
+                }
+            }
+        }
+
+        // Update our status
+        statusUpdate(TreeSearching, 100 * resultCount / alphaBetaResults.size());
+
+        // If we're only working on one move, and all moves untill now mean a loss we just choose that move
+        // It can't have a worse outcome and it probably has a greater or somewhat equal depth since it's the last thread to report a result
+        if(resultCount == alphaBetaResults.size() - 1 && bestValue == (isRed ? AlphaBetaSearcher::Loss : AlphaBetaSearcher::Win))
+        {
+            // Stop the remaining thread
+            acceptAlphaBetaResults = false;
+            alphaBetaKeepRunning = false;
+
+            // Do the move
+            if(keepRunning)
+            {
+                for(std::map<int, AlphaBetaResult>::const_iterator pos = alphaBetaResults.begin(); pos != alphaBetaResults.end(); ++pos)
+                {
+                    if(!pos->second.reported)
+                        doMove(pos->first);
+                }
+            }
+            return;
+        }
+
+        // If not all results have been found and no winning move is found, we have to continue searching
+        if(resultCount != alphaBetaResults.size() && AlphaBetaSearcher::getValue(val) != (isRed ? AlphaBetaSearcher::Win : AlphaBetaSearcher::Loss))
+            return;
+
+        // Update our status
+        statusUpdate(ChoosingAMove);
+
+        // Since we've all the results we want, we can stop searching
+        acceptAlphaBetaResults = false;
+        alphaBetaKeepRunning = false;
+
+        // If we just found the winning move, we do that move and stop searching
+        if(AlphaBetaSearcher::getValue(val) == isRed ? AlphaBetaSearcher::Win : AlphaBetaSearcher::Loss)
+        {
+            if(keepRunning)
+                doMove(col);
+            return;
+        }
+
+        // Loop through all moves and choose the best one
+        quint16 bestDepth = 0;
+        int bestCol = 0;
+        for(std::map<int, AlphaBetaResult>::const_iterator pos = alphaBetaResults.begin(); pos != alphaBetaResults.end(); ++pos)
+        {
+            const quint16 currVal = AlphaBetaSearcher::getValue(pos->second.result);
+            const quint16 currDepth = AlphaBetaSearcher::getDepth(pos->second.result);
+
+            // We already know what the best value is, just search the one with the greatest depth
+            // Because since we can't make a winning move, we choose the move where it takes the longest to finish the game
+            // By doing so we maximize the chance of the opponent making a mistake
+            if(bestValue == currVal && currDepth > bestDepth)
+            {
+                bestDepth = currDepth;
+                bestCol = pos->first;
+            }
+        }
+
+        // Do the best move
+        if(keepRunning)
+            doMove(bestCol);
+        return;
     }
