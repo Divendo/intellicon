@@ -1,6 +1,7 @@
 #include "alphabetasearcher.h"
 
 #include <QFile>
+#include <QDataStream>
 
 // Public:
     // Static:
@@ -259,24 +260,27 @@
         // Acquire a write lock on the the database
         QWriteLocker locker(AlphaBetaSearcher::posDbLockers[0]);
 
-        // Open the file
-        QFile file(":/data/positions.db");
-        file.open(QIODevice::ReadOnly);
-
         // Reserve the exact size needed for the database
         AlphaBetaSearcher::posDb[0].reserve(67557);
 
-        // Read the precalculated database
-        QByteArray line;
-        while(!file.atEnd())
-        {
-            line = file.readLine();
-            if(line.size() != 44) break;
+        // The filenames
+        const QString filenames[] = {":/data/win-pos.db", ":/data/draw-pos.db", ":/data/loss-pos.db"};
 
-            const char& value = line.at(line.size() - 2);
-            const BitBoard bitBoard = BitBoard(BitBoard::board2int(line.left(42).data()));
-            const quint64 dbPosition = qMin(bitBoard.toInt(), bitBoard.flip());
-            AlphaBetaSearcher::posDb[0][dbPosition] = createPositionValue(value == '2' ? Win : (value == '1' ? Draw : Loss), 0);
+        // Read each file
+        for(int i = 0; i < 3; ++i)
+        {
+            // Open a stream for the file
+            QFile file(filenames[i]);
+            file.open(QIODevice::ReadOnly);
+            QDataStream stream(&file);
+
+            // Read all positions from the database
+            quint64 dbPosition = 0;
+            while(!stream.atEnd())
+            {
+                stream>>dbPosition;
+                AlphaBetaSearcher::posDb[0][dbPosition] = (i == 0 ? Win : (i == 1 ? Draw : Loss));
+            }
         }
     }
 

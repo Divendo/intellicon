@@ -285,7 +285,7 @@
                     const char& chr = str[col * 6 + row];
                     if(chr == ' ') continue;
 
-                    if(colColor == Empty)
+                    if(colColor == 0)
                     {
                         // If the highest piece in this column is red, we set the top-bit to true
                         if((colColor = str[col * 6 + row]) == 'R')

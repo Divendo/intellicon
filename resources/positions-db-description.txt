@@ -1,7 +1,0 @@
-Every line represents one position.
-Every character represents the status of a square ('R' = red, 'Y' = yellow, ' ' = empty).
-The first 6 characters are the squares of the first column, the second 6 characters are the squares of the second column, etc.
-In each column the squares are ordered by row, with the lowest row first.
-After a position is noted whether it's a win (2), draw (1) or loss (0) for red.
-
-Note that only the positions containing 8 men are in this database.

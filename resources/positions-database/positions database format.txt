@@ -1,0 +1,38 @@
+There are 3 files in this database, all containing 8-ply positions
+    
+    win-pos.db
+    Contains all positions that are a win for red
+    
+    draw-pos.db
+    Contains all positions that are a draw
+    
+    loss-pos.db
+    Contains all positions that are a loss for red
+    
+The positions are stored as 64-bit integers.
+Each 64-bit integer represents one position.
+Only the first 49 bits of the integer are used to describe the position.
+A position is described by 49 bits as follows.
+The bits describe the following squares on the board:
+.  .  .  .  .  .  .
+5 12 19 26 33 40 47   Top of the board (sixth row)
+4 11 18 25 32 39 46
+3 10 17 24 31 38 45
+2  9 16 23 30 37 44
+1  8 15 22 29 36 43
+0  7 14 21 28 35 42   Bottom of the board (first row)
+
+The dots on the place of bit 6, 13, 20, 27, 34, 41 and 48 have a special meaning (they're called top-bits).
+They tell us which color true bits represent in that column.
+If the top-bit is true all true bits in that column represent red pieces, otherwise the represent yellow bits.
+The highest filled square in a column is always a true bit.
+The false bits below this square represent the other color.
+The false bits above the highest true bit are empty squares.
+
+If a column is empty the value of the top-bit is meaningless.
+The top-bit should then always be false in order to make sure a position always has the same value.
+All remaining bits (bit 49 and higher) are false.
+
+Almost every position has a symmetric twin that has the same game theoretical value.
+To save space only one of the twins is saved.
+This is always the twin that simply has the lowest value (the positions are after all simply 64-bit integers).

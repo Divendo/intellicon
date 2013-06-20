@@ -20,6 +20,8 @@
         <file alias="qt.png">resources/qt.png</file>
     </qresource>
     <qresource prefix="/data">
-        <file alias="positions.db">resources/positions.db</file>
+        <file alias="draw-pos.db">resources/positions-database/draw-pos.db</file>
+        <file alias="loss-pos.db">resources/positions-database/loss-pos.db</file>
+        <file alias="win-pos.db">resources/positions-database/win-pos.db</file>
     </qresource>
 </RCC>
